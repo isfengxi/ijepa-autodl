@@ -1,31 +1,45 @@
+# configs/csi_recon.yaml
 meta:
-  model_name: vit_base  # 你原训练用什么就填什么
-  pred_depth: 6
-  pred_emb_dim: 384
-  use_bfloat16: false
-  read_checkpoint: /root/autodl-tmp/ijepa_runs/vith14_224_ep300_scaled/jepa-latest.pth.tar  # 直接写具体路径
+  # 必须与预训练一致（决定模型结构）
+  model_name: vit_base          # 预训练是 vit_base :contentReference[oaicite:4]{index=4}
+  pred_depth: 12                # 预训练是 12 :contentReference[oaicite:5]{index=5}
+  pred_emb_dim: 384             # 预训练是 384 :contentReference[oaicite:6]{index=6}
+  use_bfloat16: true            # 预训练是 true :contentReference[oaicite:7]{index=7}
+
+  # recon 阶段：我们是“读取预训练权重”，所以这里要填 ckpt 路径
+  # 例如：/root/autodl-tmp/ijepa_runs/vith14_224_ep300_scaled/jepa-latest.pth.tar
+  read_checkpoint: /root/autodl-tmp/ijepa_runs/vith14_224_ep300_scaled/jepa-latest.pth.tar
+
+  # recon 阶段不需要 copy_data / load_checkpoint 这类预训练逻辑（可留着但不使用）
+  copy_data: false
+  load_checkpoint: false
 
 data:
-  root_path: /root/autodl-tmp/csi_preprocessed/
-  crop_size: 128
-  in_chans: 16
+  # 必须与预训练一致（决定输入形状/transform行为）
+  root_path: /root/autodl-tmp/csi_preprocessed/   # :contentReference[oaicite:8]{index=8}
+  crop_size: 128                                 # :contentReference[oaicite:9]{index=9}
+  in_chans: 16                                   # :contentReference[oaicite:10]{index=10}
+  noise_sigma: 0.0                               # :contentReference[oaicite:11]{index=11}
+  normalization: null                            # :contentReference[oaicite:12]{index=12}
+
+  # 可以改（只是影响 decoder 训练速度/显存）
   batch_size: 8
-  num_workers: 4
-  pin_mem: true
-  noise_sigma: 0.0
-  normalization: null
+  num_workers: 0
+  pin_mem: false
 
 mask:
-  allow_overlap: false
-  patch_size: 16
-  num_enc_masks: 1
-  min_keep: 10
-  enc_mask_scale: [0.85, 1.0]
-  num_pred_masks: 1
-  pred_mask_scale: [0.15, 0.2]
-  aspect_ratio: [0.75, 1.5]
+  # 必须与预训练一致（决定 token 划分、mask 尺寸、apply_masks 的对齐）
+  allow_overlap: false                 # :contentReference[oaicite:13]{index=13}
+  aspect_ratio: [0.75, 1.5]            # :contentReference[oaicite:14]{index=14}
+  enc_mask_scale: [0.85, 1.0]          # :contentReference[oaicite:15]{index=15}
+  pred_mask_scale: [0.15, 0.2]         # :contentReference[oaicite:16]{index=16}
+  min_keep: 10                         # :contentReference[oaicite:17]{index=17}
+  num_enc_masks: 1                     # :contentReference[oaicite:18]{index=18}
+  num_pred_masks: 4                    # :contentReference[oaicite:19]{index=19}
+  patch_size: 4                        # 预训练是 4 :contentReference[oaicite:20]{index=20}
 
 recon:
+  # 这些是“decoder 训练超参”，可以自由调
   epochs: 50
   lr: 0.001
   weight_decay: 0.05
@@ -34,5 +48,6 @@ recon:
     dropout: 0.0
 
 logging:
-  folder: /root/autodl-tmp/ijepa_recon_runs/recon01/
+  # 建议换新目录，避免覆盖预训练 runs :contentReference[oaicite:21]{index=21}
+  folder: /root/autodl-tmp/ijepa_recon_runs/vitb_ps4_recon/
   write_tag: recon
