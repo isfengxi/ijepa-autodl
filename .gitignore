@@ -1,3 +1,63 @@
+############################
+# Python cache / compiled
+############################
+__pycache__/
+*.py[cod]
+
+############################
+# IDE / editor
+############################
+.vscode/
+.idea/
 *.swp
 *.swo
-__pycache__
+
+############################
+# Environment
+############################
+.venv/
+venv/
+env/
+.env
+.env.*
+
+############################
+# Training outputs & logs
+############################
+# 通用输出目录（你后续可能会新建）
+outputs/
+output/
+runs/
+logs/
+wandb/
+tb_logs/
+
+# checkpoint / model weights
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.npz
+*.npy
+
+############################
+# Datasets (非常重要)
+############################
+data/
+dataset/
+datasets/
+
+# AutoDL 常见路径
+autodl-tmp/
+autodl-fs/
+
+# ImageNet / CSI 等实际数据
+ImageNet/
+ILSVRC2012/
+csi_preprocessed/
+
+############################
+# System
+############################
+.DS_Store
+Thumbs.db

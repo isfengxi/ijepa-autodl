@@ -71,11 +71,36 @@ def init_model(
     model_name='vit_base',
     crop_size=224,
     pred_depth=6,
-    pred_emb_dim=384
+    pred_emb_dim=384,
+    in_chans=16,          # <-- NEW
 ):
-    encoder = vit.__dict__[model_name](
-        img_size=[crop_size],
-        patch_size=patch_size)
+    # --- build encoder (try passing in_chans, else patch conv) ---
+    try:
+        encoder = vit.__dict__[model_name](
+            img_size=[crop_size],
+            patch_size=patch_size,
+            in_chans=in_chans,
+        )
+    except TypeError:
+        encoder = vit.__dict__[model_name](
+            img_size=[crop_size],
+            patch_size=patch_size,
+        )
+        # PatchEmbed normally has a conv named proj: Conv2d(in_chans, embed_dim, k, stride)
+        if hasattr(encoder, "patch_embed") and hasattr(encoder.patch_embed, "proj"):
+            old = encoder.patch_embed.proj
+            if hasattr(old, "in_channels") and old.in_channels != in_chans:
+                encoder.patch_embed.proj = torch.nn.Conv2d(
+                    in_chans,
+                    old.out_channels,
+                    kernel_size=old.kernel_size,
+                    stride=old.stride,
+                    padding=old.padding,
+                    bias=(old.bias is not None),
+                )
+        else:
+            raise RuntimeError("Cannot locate encoder.patch_embed.proj to patch in_chans")
+
     predictor = vit.__dict__['vit_predictor'](
         num_patches=encoder.patch_embed.num_patches,
         embed_dim=encoder.embed_dim,

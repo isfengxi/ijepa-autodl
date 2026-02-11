@@ -41,13 +41,13 @@ from src.utils.logging import (
     grad_logger,
     AverageMeter)
 from src.utils.tensors import repeat_interleave_batch
-from src.datasets.imagenet1k import make_imagenet1k
+from src.datasets.csi_pt import make_csi_pt
 
 from src.helper import (
     load_checkpoint,
     init_model,
     init_opt)
-from src.transforms import make_transforms
+from src.transforms import make_csi_transforms
 
 # --
 log_timings = True
@@ -85,18 +85,15 @@ def main(args, resume_preempt=False):
         torch.cuda.set_device(device)
 
     # -- DATA
-    use_gaussian_blur = args['data']['use_gaussian_blur']
-    use_horizontal_flip = args['data']['use_horizontal_flip']
-    use_color_distortion = args['data']['use_color_distortion']
-    color_jitter = args['data']['color_jitter_strength']
+    root_path = args['data']['root_path']  # CSI .pt 根目录
+    crop_size = args['data']['crop_size']  # 建议 128
+    noise_sigma = args['data'].get('noise_sigma', 0.0)
+    normalization = args['data'].get('normalization', None)
+
     # --
     batch_size = args['data']['batch_size']
     pin_mem = args['data']['pin_mem']
     num_workers = args['data']['num_workers']
-    root_path = args['data']['root_path']
-    image_folder = args['data']['image_folder']
-    crop_size = args['data']['crop_size']
-    crop_scale = args['data']['crop_scale']
     # --
 
     # -- MASK
@@ -159,13 +156,18 @@ def main(args, resume_preempt=False):
                            ('%d', 'time (ms)'))
 
     # -- init model
+    in_chans = args['data'].get('in_chans', 16)
+
     encoder, predictor = init_model(
         device=device,
         patch_size=patch_size,
         crop_size=crop_size,
         pred_depth=pred_depth,
         pred_emb_dim=pred_emb_dim,
-        model_name=model_name)
+        model_name=model_name,
+        in_chans=in_chans,
+    )
+
     target_encoder = copy.deepcopy(encoder)
 
     # -- make data transforms
@@ -180,28 +182,25 @@ def main(args, resume_preempt=False):
         allow_overlap=allow_overlap,
         min_keep=min_keep)
 
-    transform = make_transforms(
+    transform = make_csi_transforms(
         crop_size=crop_size,
-        crop_scale=crop_scale,
-        gaussian_blur=use_gaussian_blur,
-        horizontal_flip=use_horizontal_flip,
-        color_distortion=use_color_distortion,
-        color_jitter=color_jitter)
+        noise_sigma=noise_sigma,
+        normalization=normalization,
+    )
 
-    # -- init data-loaders/samplers
-    _, unsupervised_loader, unsupervised_sampler = make_imagenet1k(
-            transform=transform,
-            batch_size=batch_size,
-            collator=mask_collator,
-            pin_mem=pin_mem,
-            training=True,
-            num_workers=num_workers,
-            world_size=world_size,
-            rank=rank,
-            root_path=root_path,
-            image_folder=image_folder,
-            copy_data=copy_data,
-            drop_last=True)
+    _, unsupervised_loader, unsupervised_sampler = make_csi_pt(
+        transform=transform,
+        batch_size=batch_size,
+        collator=mask_collator,
+        pin_mem=pin_mem,
+        training=True,
+        num_workers=num_workers,
+        world_size=world_size,
+        rank=rank,
+        root_path=root_path,
+        drop_last=True,
+    )
+
     ipe = len(unsupervised_loader)
 
     # -- init optimizer and scheduler
