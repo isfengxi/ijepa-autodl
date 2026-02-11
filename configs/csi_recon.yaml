@@ -1,0 +1,38 @@
+meta:
+  model_name: vit_base  # 你原训练用什么就填什么
+  pred_depth: 6
+  pred_emb_dim: 384
+  use_bfloat16: false
+  read_checkpoint: /root/autodl-tmp/ijepa_runs/vith14_224_ep300_scaled/jepa-latest.pth.tar  # 直接写具体路径
+
+data:
+  root_path: /root/autodl-tmp/csi_preprocessed/
+  crop_size: 128
+  in_chans: 16
+  batch_size: 8
+  num_workers: 4
+  pin_mem: true
+  noise_sigma: 0.0
+  normalization: null
+
+mask:
+  allow_overlap: false
+  patch_size: 16
+  num_enc_masks: 1
+  min_keep: 10
+  enc_mask_scale: [0.85, 1.0]
+  num_pred_masks: 1
+  pred_mask_scale: [0.15, 0.2]
+  aspect_ratio: [0.75, 1.5]
+
+recon:
+  epochs: 50
+  lr: 0.001
+  weight_decay: 0.05
+  decoder:
+    hidden_mult: 4
+    dropout: 0.0
+
+logging:
+  folder: /root/autodl-tmp/ijepa_recon_runs/recon01/
+  write_tag: recon
