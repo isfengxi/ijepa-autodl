@@ -165,8 +165,11 @@ def main(args):
     # ---- build pixel decoder
     # token_dim 用 pred_emb_dim（你config里 predictor embedding dim）
     patch_dim = in_chans * patch_size * patch_size
-    decoder = PixelDecoderMLP(token_dim=pred_emb_dim, patch_dim=patch_dim,
-                             hidden_mult=hidden_mult, dropout=dropout).to(device)
+    token_dim = getattr(encoder, 'embed_dim', None) or getattr(encoder, 'num_features', None)
+    if token_dim is None:
+        token_dim = 768  # fallback for vit_base
+    decoder = PixelDecoderMLP(token_dim=token_dim, patch_dim=patch_dim,
+                          hidden_mult=hidden_mult, dropout=dropout).to(device)
     # decoder = DistributedDataParallel(decoder, static_graph=True)
 
     dec_opt = init_decoder_opt(decoder, lr=dec_lr, wd=dec_wd)
@@ -186,17 +189,14 @@ def main(args):
             def train_step():
                 # 线1：拿预测token（完全对齐你的 forward_context）：
                 with torch.no_grad():
-                    z = encoder(imgs, masks_enc)
-                    z = predictor(z, masks_enc, masks_pred)
+                    z = encoder(imgs, masks_enc)          # [B', K_enc, 768]  (K_enc = visible tokens)
 
-                # 线2：拿gt patches，并用同一套 masks_pred 对齐：
-                patches = patchify_2d(imgs, patch_size)                 # [B, N, patch_dim]
-                gt = apply_masks(patches, masks_pred)                   # [B, K, patch_dim]
+                patches = patchify_2d(imgs, patch_size)   # [B, N, patch_dim]
+                gt = apply_masks(patches, masks_enc)      # 用 masks_enc 对齐 z 的 token集合
                 B = patches.shape[0]
                 gt = repeat_interleave_batch(gt, B, repeat=len(masks_enc))
 
-                # decode
-                pred = decoder(z)                                       # [B', K, patch_dim]
+                pred = decoder(z)                         # [B', K_enc, patch_dim]
                 loss = F.mse_loss(pred, gt)
                 # loss = AllReduce.apply(loss)  # 和你 train.py 一样做全卡reduce（单卡也没坏处）
                 dec_opt.zero_grad(set_to_none=True)
@@ -227,3 +227,4 @@ def main(args):
 
 if __name__ == "__main__":
     main(yaml.safe_load(open(sys.argv[1], 'r')))
+
